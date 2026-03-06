@@ -17,6 +17,15 @@ interface Props {
   onCreated: (issueUrl: string, issueNumber: number) => void
 }
 
+function buildAttachmentsSection(attachments: QATestPlan['attachments'], field: string, heading: string): string {
+  const fieldAtts = (attachments || []).filter(a => a.field === field)
+  if (fieldAtts.length === 0) return ""
+  const lines = fieldAtts.map(a =>
+    a.type.startsWith("image/") ? `![${a.name}](${a.url})` : `[${a.name}](${a.url})`
+  )
+  return `\n\n### ${heading} Attachments\n${lines.join("\n")}`
+}
+
 function buildIssueBody(t: QATestPlan): string {
   return `## QA Test Failure
 **Test ID:** ${t.test_id || "—"}
@@ -33,10 +42,10 @@ ${t.steps || "N/A"}
 ${t.expected_result || "N/A"}
 
 ### Actual Result / Tester Details
-${t.tester_details || "N/A"}
+${t.tester_details || "N/A"}${buildAttachmentsSection(t.attachments, "tester_details", "Tester Details")}
 
 ### Suggestions
-${t.suggestions || "N/A"}`
+${t.suggestions || "N/A"}${buildAttachmentsSection(t.attachments, "suggestions", "Suggestions")}`
 }
 
 export default function GitHubIssueModal({ testPlan, repo, open, onClose, onCreated }: Props) {

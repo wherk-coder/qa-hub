@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Bug, ExternalLink, RefreshCw, Trash2, XCircle } from "lucide-react"
 import GitHubIssueModal from "./GitHubIssueModal"
+import FileUpload from "./FileUpload"
+import { Attachment } from "@/types"
 
 interface Props {
   test: QATestPlan
@@ -270,11 +272,25 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
         {/* Tester Details */}
         <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
           <EditableCell value={test.tester_details} onSave={v => save("tester_details", v)} placeholder="—" multiline />
+          <FileUpload
+            testPlanId={test.id}
+            projectId={test.project_id}
+            field="tester_details"
+            attachments={test.attachments || []}
+            onUpdate={(atts: Attachment[]) => save("attachments", atts)}
+          />
         </td>
 
         {/* Suggestions */}
         <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
           <EditableCell value={test.suggestions} onSave={v => save("suggestions", v)} placeholder="—" multiline />
+          <FileUpload
+            testPlanId={test.id}
+            projectId={test.project_id}
+            field="suggestions"
+            attachments={test.attachments || []}
+            onUpdate={(atts: Attachment[]) => save("attachments", atts)}
+          />
         </td>
 
         {/* Dev Notes */}

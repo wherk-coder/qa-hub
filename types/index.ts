@@ -1,3 +1,12 @@
+export interface Attachment {
+  url: string
+  name: string
+  type: string
+  path: string
+  field: string
+  uploadedAt: string
+}
+
 export interface QAProject {
   id: string
   name: string
@@ -28,6 +37,7 @@ export interface QATestPlan {
   github_issue_url: string | null
   github_issue_number: number | null
   github_issue_status: 'open' | 'closed' | null
+  attachments: Attachment[]
   created_at: string
   updated_at: string
 }
