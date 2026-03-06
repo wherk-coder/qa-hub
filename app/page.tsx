@@ -1,101 +1,138 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useEffect, useState } from "react"
+import { QAProject } from "@/types"
+import { Button } from "@/components/ui/button"
+import NewProjectDialog from "@/components/NewProjectDialog"
+import { Plus, Github, FolderOpen, Trash2, BarChart3, Clock } from "lucide-react"
+import Link from "next/link"
+
+export default function HomePage() {
+  const [projects, setProjects] = useState<QAProject[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showNew, setShowNew] = useState(false)
+
+  useEffect(() => {
+    fetchProjects()
+  }, [])
+
+  async function fetchProjects() {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/projects")
+      const data = await res.json()
+      setProjects(Array.isArray(data) ? data : [])
+    } catch {
+      setProjects([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function deleteProject(id: string, e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm("Delete this project and all its test cases?")) return
+    await fetch(`/api/projects/${id}`, { method: "DELETE" })
+    setProjects(prev => prev.filter(p => p.id !== id))
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="space-y-8">
+      {/* Hero */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Projects</h1>
+          <p className="text-gray-500 text-sm mt-0.5">Manage your QA test plans and track bugs</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+        <Button
+          onClick={() => setShowNew(true)}
+          className="bg-amber-600 hover:bg-amber-500 text-white gap-2 self-start sm:self-auto"
         >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          <Plus className="w-4 h-4" />
+          New Project
+        </Button>
+      </div>
+
+      {/* Projects Grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-36 rounded-xl bg-white/5 animate-pulse" />
+          ))}
+        </div>
+      ) : projects.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-amber-600/10 flex items-center justify-center mb-4">
+            <FolderOpen className="w-8 h-8 text-amber-600" />
+          </div>
+          <h2 className="text-lg font-semibold text-white mb-1">No projects yet</h2>
+          <p className="text-gray-500 text-sm mb-6">Create your first QA project to get started</p>
+          <Button
+            onClick={() => setShowNew(true)}
+            className="bg-amber-600 hover:bg-amber-500 text-white gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            New Project
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map(project => (
+            <Link
+              key={project.id}
+              href={`/project/${project.id}`}
+              className="group relative block rounded-xl border border-white/8 bg-[#0f0f0f] hover:border-amber-600/40 hover:bg-[#111] transition-all p-5"
+            >
+              <button
+                onClick={(e) => deleteProject(project.id, e)}
+                className="absolute top-3 right-3 p-1.5 rounded opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                title="Delete project"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-600/15 flex items-center justify-center shrink-0">
+                  <BarChart3 className="w-5 h-5 text-amber-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-white truncate group-hover:text-amber-400 transition-colors">
+                    {project.name}
+                  </h3>
+                  {project.github_repo && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Github className="w-3 h-3 text-gray-500" />
+                      <span className="text-xs text-gray-500 truncate">{project.github_repo}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <Clock className="w-3 h-3 text-gray-600" />
+                    <span className="text-xs text-gray-600">
+                      {new Date(project.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-xs text-amber-600/70 font-medium group-hover:text-amber-500 transition-colors">
+                  View test plan →
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <NewProjectDialog
+        open={showNew}
+        onClose={() => setShowNew(false)}
+        onCreated={(project) => {
+          setProjects(prev => [project, ...prev])
+          setShowNew(false)
+        }}
+      />
     </div>
-  );
+  )
 }
