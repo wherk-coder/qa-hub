@@ -369,7 +369,7 @@ export default function ProjectPage() {
         </div>
       ) : (
         <div className="rounded-xl border border-white/8 bg-[#0f0f0f] overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.2) transparent' }}>
             <table
               className="text-sm"
               style={{ tableLayout: "fixed", width: tableWidth + "px" }}
