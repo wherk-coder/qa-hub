@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import React, { useState, useRef, useCallback } from "react"
 import { QATestPlan, TestResult } from "@/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ interface Props {
   repo: string | null
   onUpdate: (id: string, updates: Partial<QATestPlan>) => void
   onDelete: (id: string) => void
+  columnWidths?: Record<string, number>
 }
 
 const RESULT_COLORS: Record<TestResult, string> = {
@@ -139,7 +140,11 @@ function CloseIssueDialog({
   )
 }
 
-export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
+export default function TestRow({ test, repo, onUpdate, onDelete, columnWidths = {} }: Props) {
+  function cw(key: string): React.CSSProperties {
+    const w = columnWidths[key]
+    return w ? { width: w, maxWidth: w, overflow: "hidden" } : {}
+  }
   const [showIssueModal, setShowIssueModal] = useState(false)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [closingIssue, setClosingIssue] = useState(false)
@@ -172,37 +177,37 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
     <>
       <tr className={`border-b border-white/5 hover:brightness-110 transition-all ${ROW_BG[result]}`}>
         {/* Section */}
-        <td className="px-3 py-2 text-xs text-gray-400 min-w-[120px] max-w-[160px]">
+        <td className="px-3 py-2 text-xs text-gray-400" style={cw("section")}>
           <EditableCell value={test.section} onSave={v => save("section", v)} placeholder="Section" />
         </td>
 
         {/* Test ID */}
-        <td className="px-3 py-2 text-xs font-mono min-w-[60px]">
+        <td className="px-3 py-2 text-xs font-mono" style={cw("test_id")}>
           <EditableCell value={test.test_id} onSave={v => save("test_id", v)} placeholder="ID" />
         </td>
 
         {/* Test Name */}
-        <td className="px-3 py-2 min-w-[160px] max-w-[220px]">
+        <td className="px-3 py-2" style={cw("test_name")}>
           <EditableCell value={test.test_name} onSave={v => save("test_name", v)} placeholder="Test name" />
         </td>
 
         {/* Preconditions */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2" style={cw("preconditions")}>
           <EditableCell value={test.preconditions} onSave={v => save("preconditions", v)} placeholder="—" multiline />
         </td>
 
         {/* Steps */}
-        <td className="px-3 py-2 min-w-[140px] max-w-[200px]">
+        <td className="px-3 py-2" style={cw("steps")}>
           <EditableCell value={test.steps} onSave={v => save("steps", v)} placeholder="—" multiline />
         </td>
 
         {/* Expected Result */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2" style={cw("expected_result")}>
           <EditableCell value={test.expected_result} onSave={v => save("expected_result", v)} placeholder="—" multiline />
         </td>
 
         {/* Result */}
-        <td className="px-3 py-2 min-w-[130px]">
+        <td className="px-3 py-2" style={cw("result")}>
           <Select
             value={result}
             onValueChange={v => save("result", v as TestResult)}
@@ -270,7 +275,7 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
         </td>
 
         {/* Tester Details */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2" style={cw("tester_details")}>
           <EditableCell value={test.tester_details} onSave={v => save("tester_details", v)} placeholder="—" multiline />
           <FileUpload
             testPlanId={test.id}
@@ -282,7 +287,7 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
         </td>
 
         {/* Suggestions */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2" style={cw("suggestions")}>
           <EditableCell value={test.suggestions} onSave={v => save("suggestions", v)} placeholder="—" multiline />
           <FileUpload
             testPlanId={test.id}
@@ -294,12 +299,12 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
         </td>
 
         {/* Dev Notes */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2" style={cw("developer_notes")}>
           <EditableCell value={test.developer_notes} onSave={v => save("developer_notes", v)} placeholder="—" multiline />
         </td>
 
         {/* Test Again */}
-        <td className="px-3 py-2 text-center min-w-[80px]">
+        <td className="px-3 py-2 text-center" style={cw("test_again")}>
           <button
             onClick={() => save("test_again", !test.test_again)}
             className={`w-8 h-4 rounded-full transition-colors relative ${test.test_again ? "bg-amber-600" : "bg-gray-700"}`}
@@ -313,12 +318,12 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
         </td>
 
         {/* Retest Details */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2" style={cw("retest_details")}>
           <EditableCell value={test.retest_details} onSave={v => save("retest_details", v)} placeholder="—" multiline />
         </td>
 
         {/* Actions */}
-        <td className="px-2 py-2 text-center">
+        <td className="px-2 py-2 text-center" style={cw("actions")}>
           <button
             onClick={() => onDelete(test.id)}
             className="text-gray-600 hover:text-red-400 transition-colors p-1 rounded"

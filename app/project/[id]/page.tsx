@@ -1,21 +1,48 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useParams } from "next/navigation"
 import { QAProject, QATestPlan, TestResult } from "@/types"
 import { Button } from "@/components/ui/button"
 import TestRow from "@/components/TestRow"
 import CSVImportDialog from "@/components/CSVImportDialog"
 import { useToast } from "@/hooks/use-toast"
+import { useColumnResize } from "@/hooks/useColumnResize"
 import {
   ArrowLeft, Plus, Upload, Github, RefreshCw,
   CheckCircle2, XCircle, MinusCircle, Circle, Edit3, Check, X
 } from "lucide-react"
 import Link from "next/link"
 
+type SortDir = "asc" | "desc" | null
+
+interface ColDef {
+  key: string
+  label: string
+  sortable: boolean
+  defaultWidth: number
+}
+
+const COLUMNS: ColDef[] = [
+  { key: "section",          label: "Section",         sortable: true,  defaultWidth: 90  },
+  { key: "test_id",          label: "ID",              sortable: true,  defaultWidth: 70  },
+  { key: "test_name",        label: "Test",            sortable: true,  defaultWidth: 160 },
+  { key: "preconditions",    label: "Preconditions",   sortable: false, defaultWidth: 140 },
+  { key: "steps",            label: "Steps",           sortable: false, defaultWidth: 200 },
+  { key: "expected_result",  label: "Expected Result", sortable: false, defaultWidth: 180 },
+  { key: "result",           label: "Result",          sortable: true,  defaultWidth: 100 },
+  { key: "tester_details",   label: "Tester Details",  sortable: false, defaultWidth: 150 },
+  { key: "suggestions",      label: "Suggestions",     sortable: false, defaultWidth: 150 },
+  { key: "developer_notes",  label: "Dev Notes",       sortable: false, defaultWidth: 140 },
+  { key: "test_again",       label: "Retest?",         sortable: true,  defaultWidth: 70  },
+  { key: "retest_details",   label: "Retest Details",  sortable: false, defaultWidth: 130 },
+  { key: "actions",          label: "",                sortable: false, defaultWidth: 40  },
+]
+
+const DEFAULT_WIDTHS = Object.fromEntries(COLUMNS.map(c => [c.key, c.defaultWidth]))
+
 export default function ProjectPage() {
   const params = useParams()
-  // router not used
   const { toast } = useToast()
   const id = params.id as string
 
@@ -27,6 +54,13 @@ export default function ProjectPage() {
   const [draftName, setDraftName] = useState("")
   const [editingRepo, setEditingRepo] = useState(false)
   const [draftRepo, setDraftRepo] = useState("")
+
+  // Sort state
+  const [sortCol, setSortCol] = useState<string | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>(null)
+
+  // Column resize
+  const { widths: colWidths, startResize } = useColumnResize(id, DEFAULT_WIDTHS)
 
   // Track pending updates to debounce
   const pendingUpdates = useRef<Map<string, NodeJS.Timeout>>(new Map())
@@ -126,6 +160,26 @@ export default function ProjectPage() {
     setEditingRepo(false)
   }
 
+  function handleSort(col: string) {
+    if (sortCol === col) {
+      if (sortDir === "asc") setSortDir("desc")
+      else { setSortCol(null); setSortDir(null) }
+    } else {
+      setSortCol(col)
+      setSortDir("asc")
+    }
+  }
+
+  const sortedTests = useMemo(() => {
+    if (!sortCol || !sortDir) return tests
+    return [...tests].sort((a, b) => {
+      const aVal = String(a[sortCol as keyof QATestPlan] ?? "")
+      const bVal = String(b[sortCol as keyof QATestPlan] ?? "")
+      const cmp = aVal.localeCompare(bVal)
+      return sortDir === "asc" ? cmp : -cmp
+    })
+  }, [tests, sortCol, sortDir])
+
   // Stats
   const total = tests.length
   const counts = tests.reduce((acc, t) => {
@@ -138,6 +192,7 @@ export default function ProjectPage() {
   const blockedCount = counts.blocked || 0
   const untestedCount = counts.untested || total
 
+  const tableWidth = COLUMNS.reduce((sum, col) => sum + (colWidths[col.key] ?? col.defaultWidth), 0)
 
   if (loading) {
     return (
@@ -315,28 +370,54 @@ export default function ProjectPage() {
       ) : (
         <div className="rounded-xl border border-white/8 bg-[#0f0f0f] overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table
+              className="text-sm"
+              style={{ tableLayout: "fixed", width: tableWidth + "px" }}
+            >
               <thead>
                 <tr className="border-b border-white/10 bg-[#0d0d0d] text-left">
-                  {[
-                    "Section", "ID", "Test", "Preconditions", "Steps",
-                    "Expected Result", "Result", "Tester Details", "Suggestions",
-                    "Dev Notes", "Retest?", "Retest Details", ""
-                  ].map((col) => (
-                    <th key={col} className="px-3 py-2.5 text-xs font-medium text-gray-500 whitespace-nowrap">
-                      {col}
+                  {COLUMNS.map((col) => (
+                    <th
+                      key={col.key}
+                      style={{ width: colWidths[col.key] ?? col.defaultWidth, position: "relative" }}
+                      className="text-xs font-medium text-gray-500"
+                    >
+                      <div
+                        className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis select-none flex items-center gap-1 ${
+                          col.sortable ? "cursor-pointer hover:text-gray-300 transition-colors" : ""
+                        }`}
+                        onClick={col.sortable ? () => handleSort(col.key) : undefined}
+                        title={col.sortable ? `Sort by ${col.label}` : undefined}
+                      >
+                        {col.label}
+                        {col.sortable && sortCol === col.key && (
+                          <span className="text-amber-500 text-[10px] leading-none">
+                            {sortDir === "asc" ? "▲" : "▼"}
+                          </span>
+                        )}
+                      </div>
+                      {col.key !== "actions" && (
+                        <div
+                          onMouseDown={(e) => startResize(col.key, e)}
+                          className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize group/handle flex items-center justify-center"
+                          title="Drag to resize"
+                        >
+                          <div className="w-px h-full bg-white/10 group-hover/handle:bg-amber-600/70 transition-colors" />
+                        </div>
+                      )}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {tests.map(test => (
+                {sortedTests.map(test => (
                   <TestRow
                     key={test.id}
                     test={test}
                     repo={project.github_repo}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}
+                    columnWidths={colWidths}
                   />
                 ))}
               </tbody>
