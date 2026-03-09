@@ -9,7 +9,7 @@ import CSVImportDialog from "@/components/CSVImportDialog"
 import { useToast } from "@/hooks/use-toast"
 import {
   ArrowLeft, Plus, Upload, Github, RefreshCw,
-  CheckCircle2, XCircle, MinusCircle, Circle, Edit3, Check, X
+  CheckCircle2, XCircle, MinusCircle, Circle, Edit3, Check, X, FileText
 } from "lucide-react"
 import Link from "next/link"
 
@@ -183,9 +183,18 @@ export default function ProjectPage() {
                 <button onClick={() => setEditingName(false)} className="text-gray-500 hover:text-gray-300"><X className="w-4 h-4" /></button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setDraftName(project.name); setEditingName(true) }}>
-                <h1 className="text-2xl font-bold text-white">{project.name}</h1>
-                <Edit3 className="w-4 h-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 group cursor-pointer" onClick={() => { setDraftName(project.name); setEditingName(true) }}>
+                  <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+                  <Edit3 className="w-4 h-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <Link
+                  href={`/project/${id}/details`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium bg-amber-600/20 text-amber-400 border border-amber-600/30 rounded-full hover:bg-amber-600/30 transition-colors"
+                >
+                  <FileText className="w-3 h-3" />
+                  Project Details
+                </Link>
               </div>
             )}
 
