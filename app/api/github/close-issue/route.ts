@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const { repo, issue_number } = await req.json()
+  let repo: unknown, issue_number: unknown
+  try {
+    const body = await req.json()
+    repo = body.repo
+    issue_number = body.issue_number
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   if (!repo || !issue_number) {
     return NextResponse.json({ error: 'repo and issue_number are required' }, { status: 400 })
   }
 
-  if (!Number.isInteger(issue_number) || issue_number <= 0) {
+  if (typeof repo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    return NextResponse.json({ error: 'repo must be in owner/repo format' }, { status: 400 })
+  }
+
+  const issueNum = Number(issue_number)
+  if (!Number.isInteger(issueNum) || issueNum <= 0) {
     return NextResponse.json({ error: 'issue_number must be a positive integer' }, { status: 400 })
   }
 
@@ -16,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'GITHUB_TOKEN not configured' }, { status: 500 })
   }
 
-  const response = await fetch(`https://api.github.com/repos/${repo}/issues/${issue_number}`, {
+  const response = await fetch(`https://api.github.com/repos/${repo}/issues/${issueNum}`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${token}`,
