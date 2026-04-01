@@ -7,6 +7,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'repo and issue_number are required' }, { status: 400 })
   }
 
+  if (!Number.isInteger(issue_number) || issue_number <= 0) {
+    return NextResponse.json({ error: 'issue_number must be a positive integer' }, { status: 400 })
+  }
+
   const token = process.env.GITHUB_TOKEN
   if (!token) {
     return NextResponse.json({ error: 'GITHUB_TOKEN not configured' }, { status: 500 })

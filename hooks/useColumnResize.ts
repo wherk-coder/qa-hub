@@ -73,5 +73,12 @@ export function useColumnResize(
     [storageKey]
   )
 
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [])
+
   return { widths, startResize }
 }

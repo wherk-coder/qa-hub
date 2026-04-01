@@ -1,24 +1,31 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+const SEED_EMAILS = (process.env.SEED_USER_EMAILS || 'admin@example.com,tester@example.com').split(',').map(e => e.trim())
+const SEED_NAMES = (process.env.SEED_USER_NAMES || 'Admin,Tester').split(',').map(n => n.trim())
+
 // POST /api/seed — seeds initial data. Safe to call multiple times (idempotent).
 export async function POST() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Seeding disabled in production' }, { status: 403 })
+  }
+
   try {
     // 1. Create qa_users
     const { data: existingUsers } = await supabase
       .from('qa_users')
       .select('email')
-      .in('email', ['lee@wherk.com', 'cmacatangay3433@gmail.com'])
+      .in('email', SEED_EMAILS)
 
     const existingEmails = new Set((existingUsers || []).map((u: { email: string }) => u.email))
 
-    const usersToInsert = []
-    if (!existingEmails.has('lee@wherk.com')) {
-      usersToInsert.push({ email: 'lee@wherk.com', name: 'Lee', role: 'admin' })
-    }
-    if (!existingEmails.has('cmacatangay3433@gmail.com')) {
-      usersToInsert.push({ email: 'cmacatangay3433@gmail.com', name: 'CM', role: 'tester' })
-    }
+    const usersToInsert = SEED_EMAILS
+      .map((email, i) => ({
+        email,
+        name: SEED_NAMES[i] || email.split('@')[0],
+        role: i === 0 ? 'admin' : 'tester',
+      }))
+      .filter(u => !existingEmails.has(u.email))
 
     let users: { id: string; email: string }[] = []
     if (usersToInsert.length > 0) {
@@ -34,10 +41,10 @@ export async function POST() {
     const { data: allUsers } = await supabase
       .from('qa_users')
       .select('id, email')
-      .in('email', ['lee@wherk.com', 'cmacatangay3433@gmail.com'])
+      .in('email', SEED_EMAILS)
 
-    const leeUser = (allUsers || []).find((u: { id: string; email: string }) => u.email === 'lee@wherk.com')
-    const cmUser = (allUsers || []).find((u: { id: string; email: string }) => u.email === 'cmacatangay3433@gmail.com')
+    const adminUser = (allUsers || []).find((u: { id: string; email: string }) => u.email === SEED_EMAILS[0])
+    const testerUser = (allUsers || []).find((u: { id: string; email: string }) => u.email === SEED_EMAILS[1])
 
     // 2. Create project
     const { data: existingProject } = await supabase
@@ -58,30 +65,32 @@ export async function POST() {
     }
 
     // 3. Assign members
-    if (leeUser) {
+    if (adminUser) {
       const { data: existingMember } = await supabase
         .from('qa_project_members')
         .select('id')
         .eq('project_id', projectId)
-        .eq('user_id', leeUser.id)
+        .eq('user_id', adminUser.id)
         .maybeSingle()
       if (!existingMember) {
-        await supabase.from('qa_project_members').insert({
-          project_id: projectId, user_id: leeUser.id, role: 'admin'
+        const { error: memberError } = await supabase.from('qa_project_members').insert({
+          project_id: projectId, user_id: adminUser.id, role: 'admin'
         })
+        if (memberError) throw new Error(`Member insert (admin): ${memberError.message}`)
       }
     }
-    if (cmUser) {
+    if (testerUser) {
       const { data: existingMember } = await supabase
         .from('qa_project_members')
         .select('id')
         .eq('project_id', projectId)
-        .eq('user_id', cmUser.id)
+        .eq('user_id', testerUser.id)
         .maybeSingle()
       if (!existingMember) {
-        await supabase.from('qa_project_members').insert({
-          project_id: projectId, user_id: cmUser.id, role: 'tester'
+        const { error: memberError } = await supabase.from('qa_project_members').insert({
+          project_id: projectId, user_id: testerUser.id, role: 'tester'
         })
+        if (memberError) throw new Error(`Member insert (tester): ${memberError.message}`)
       }
     }
 

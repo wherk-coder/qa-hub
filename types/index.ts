@@ -37,7 +37,7 @@ export interface QATestPlan {
   github_issue_url: string | null
   github_issue_number: number | null
   github_issue_status: 'open' | 'closed' | null
-  attachments: Attachment[]
+  attachments?: Attachment[]
   created_at: string
   updated_at: string
 }

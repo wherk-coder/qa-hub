@@ -32,8 +32,19 @@ export async function middleware(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === '/login'
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
-  // Allow API routes to pass through (they handle their own auth or are internal)
+  // Protect API routes: require authentication except /api/seed in development
   if (isApiRoute) {
+    const isSeedRoute = request.nextUrl.pathname === '/api/seed'
+    const isDev = process.env.NODE_ENV === 'development'
+
+    if (isSeedRoute && isDev) {
+      return supabaseResponse
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     return supabaseResponse
   }
 

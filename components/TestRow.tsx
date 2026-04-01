@@ -107,12 +107,14 @@ function CloseIssueDialog({
   onConfirm,
   loading,
   issueNumber,
+  error,
 }: {
   open: boolean
   onClose: () => void
   onConfirm: () => void
   loading: boolean
   issueNumber: number | null
+  error?: string | null
 }) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -123,6 +125,9 @@ function CloseIssueDialog({
         <p className="text-gray-400 text-sm">
           Are you sure you want to close issue <strong className="text-white">#{issueNumber}</strong> on GitHub?
         </p>
+        {error && (
+          <p className="text-red-400 text-sm mt-2">{error}</p>
+        )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} className="text-gray-400" disabled={loading}>
             Cancel
@@ -148,6 +153,7 @@ export default function TestRow({ test, repo, onUpdate, onDelete, columnWidths =
   const [showIssueModal, setShowIssueModal] = useState(false)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [closingIssue, setClosingIssue] = useState(false)
+  const [closeError, setCloseError] = useState<string | null>(null)
 
   const save = useCallback((field: keyof QATestPlan, value: unknown) => {
     onUpdate(test.id, { [field]: value } as Partial<QATestPlan>)
@@ -158,6 +164,7 @@ export default function TestRow({ test, repo, onUpdate, onDelete, columnWidths =
   async function handleCloseIssue() {
     if (!repo || !test.github_issue_number) return
     setClosingIssue(true)
+    setCloseError(null)
     try {
       const res = await fetch("/api/github/close-issue", {
         method: "POST",
@@ -166,10 +173,15 @@ export default function TestRow({ test, repo, onUpdate, onDelete, columnWidths =
       })
       if (res.ok) {
         onUpdate(test.id, { github_issue_status: "closed" })
+        setShowCloseDialog(false)
+      } else {
+        const data = await res.json().catch(() => ({ error: "Failed to close issue" }))
+        setCloseError(data.error || "Failed to close issue")
       }
+    } catch {
+      setCloseError("Network error: could not close issue")
     } finally {
       setClosingIssue(false)
-      setShowCloseDialog(false)
     }
   }
 
@@ -353,10 +365,11 @@ export default function TestRow({ test, repo, onUpdate, onDelete, columnWidths =
 
       <CloseIssueDialog
         open={showCloseDialog}
-        onClose={() => setShowCloseDialog(false)}
+        onClose={() => { setShowCloseDialog(false); setCloseError(null) }}
         onConfirm={handleCloseIssue}
         loading={closingIssue}
         issueNumber={test.github_issue_number}
+        error={closeError}
       />
     </>
   )

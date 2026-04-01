@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS qa_project_members (
   project_id uuid REFERENCES qa_projects(id) ON DELETE CASCADE,
   user_id uuid REFERENCES qa_users(id) ON DELETE CASCADE,
   role text DEFAULT 'tester',
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  UNIQUE (project_id, user_id)
 );
 
 -- 4. qa_test_plans
@@ -47,6 +48,7 @@ CREATE TABLE IF NOT EXISTS qa_test_plans (
   github_issue_number integer,
   github_issue_status text CHECK (github_issue_status IN ('open', 'closed') OR github_issue_status IS NULL),
   created_at timestamptz DEFAULT now(),
+  attachments jsonb DEFAULT '[]'::jsonb,
   updated_at timestamptz DEFAULT now()
 );
 
@@ -71,3 +73,32 @@ DO $$ BEGIN
     CREATE POLICY "Allow all on qa_test_plans" ON qa_test_plans FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
+
+
+-- RPC: Atomically append an attachment to qa_test_plans.attachments
+CREATE OR REPLACE FUNCTION append_attachment(p_test_plan_id uuid, p_attachment jsonb)
+RETURNS jsonb
+LANGUAGE sql
+AS $$
+  UPDATE qa_test_plans
+  SET attachments = COALESCE(attachments, '[]'::jsonb) || jsonb_build_array(p_attachment),
+      updated_at = now()
+  WHERE id = p_test_plan_id
+  RETURNING attachments;
+$$;
+
+-- RPC: Atomically remove an attachment by path from qa_test_plans.attachments
+CREATE OR REPLACE FUNCTION remove_attachment(p_test_plan_id uuid, p_path text)
+RETURNS jsonb
+LANGUAGE sql
+AS $$
+  UPDATE qa_test_plans
+  SET attachments = (
+    SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+    FROM jsonb_array_elements(COALESCE(attachments, '[]'::jsonb)) AS elem
+    WHERE elem->>'path' != p_path
+  ),
+  updated_at = now()
+  WHERE id = p_test_plan_id
+  RETURNING attachments;
+$$;
