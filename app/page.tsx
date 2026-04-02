@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { QAProject } from "@/types"
 import { Button } from "@/components/ui/button"
 import NewProjectDialog from "@/components/NewProjectDialog"
-import { Plus, Github, FolderOpen, Trash2, BarChart3, Clock } from "lucide-react"
+import { Plus, Github, FolderOpen, Trash2, BarChart3, Bug } from "lucide-react"
 import Link from "next/link"
 
 export default function HomePage() {
@@ -39,7 +39,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
-      {/* Hero */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Projects</h1>
@@ -58,7 +58,7 @@ export default function HomePage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-36 rounded-xl bg-white/5 animate-pulse" />
+            <div key={i} className="h-40 rounded-xl bg-white/5 animate-pulse" />
           ))}
         </div>
       ) : projects.length === 0 ? (
@@ -78,50 +78,74 @@ export default function HomePage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map(project => (
-            <Link
-              key={project.id}
-              href={`/project/${project.id}`}
-              className="group relative block rounded-xl border border-white/8 bg-[#0f0f0f] hover:border-amber-600/40 hover:bg-[#111] transition-all p-5"
-            >
-              <button
-                onClick={(e) => deleteProject(project.id, e)}
-                className="absolute top-3 right-3 p-1.5 rounded opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
-                title="Delete project"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+          {projects.map(project => {
+            const total = project.test_count ?? 0
+            const pass = project.pass_count ?? 0
+            const passRate = total > 0 ? Math.round((pass / total) * 100) : 0
+            const openBugs = project.open_bugs_count ?? 0
 
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-amber-600/15 flex items-center justify-center shrink-0">
-                  <BarChart3 className="w-5 h-5 text-amber-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-white truncate group-hover:text-amber-400 transition-colors">
-                    {project.name}
-                  </h3>
-                  {project.github_repo && (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <Github className="w-3 h-3 text-gray-500" />
-                      <span className="text-xs text-gray-500 truncate">{project.github_repo}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <Clock className="w-3 h-3 text-gray-600" />
-                    <span className="text-xs text-gray-600">
-                      {new Date(project.created_at).toLocaleDateString()}
-                    </span>
+            return (
+              <Link
+                key={project.id}
+                href={`/project/${project.id}`}
+                className="group relative block rounded-xl border border-white/8 bg-[#0f0f0f] hover:border-amber-600/40 hover:bg-[#111] transition-all p-5"
+              >
+                <button
+                  onClick={(e) => deleteProject(project.id, e)}
+                  className="absolute top-3 right-3 p-1.5 rounded opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                  title="Delete project"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-amber-600/15 flex items-center justify-center shrink-0">
+                    <BarChart3 className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-white truncate group-hover:text-amber-400 transition-colors pr-6">
+                      {project.name}
+                    </h3>
+                    {project.github_repo && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Github className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs text-gray-500 truncate">{project.github_repo}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-xs text-amber-600/70 font-medium group-hover:text-amber-500 transition-colors">
-                  View test plan →
-                </span>
-              </div>
-            </Link>
-          ))}
+                {/* Stats */}
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-white/4 py-1.5">
+                    <div className="text-sm font-bold text-white">{total}</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5">tests</div>
+                  </div>
+                  <div className="rounded-lg bg-white/4 py-1.5">
+                    <div className={`text-sm font-bold ${passRate >= 80 ? 'text-green-400' : passRate >= 50 ? 'text-yellow-400' : total > 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                      {passRate}%
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-0.5">pass rate</div>
+                  </div>
+                  <div className="rounded-lg bg-white/4 py-1.5">
+                    <div className={`text-sm font-bold ${openBugs > 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                      {openBugs}
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-0.5 flex items-center justify-center gap-0.5">
+                      <Bug className="w-2.5 h-2.5" />
+                      open
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <span className="text-xs text-amber-600/70 font-medium group-hover:text-amber-500 transition-colors">
+                    View test plan →
+                  </span>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       )}
 

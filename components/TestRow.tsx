@@ -4,8 +4,11 @@ import { useState, useRef, useCallback } from "react"
 import { QATestPlan, TestResult } from "@/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Bug, ExternalLink, RefreshCw, Trash2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Bug, ExternalLink, RefreshCw, Trash2, XCircle } from "lucide-react"
 import GitHubIssueModal from "./GitHubIssueModal"
+import FileUpload from "./FileUpload"
+import { Attachment } from "@/types"
 
 interface Props {
   test: QATestPlan
@@ -97,8 +100,55 @@ function EditableCell({
   )
 }
 
+function CloseIssueDialog({
+  open,
+  onClose,
+  onConfirm,
+  loading,
+  issueNumber,
+  error,
+}: {
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void
+  loading: boolean
+  issueNumber: number | null
+  error?: string | null
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-[#111] border-white/10 text-white max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-white">Close GitHub Issue</DialogTitle>
+        </DialogHeader>
+        <p className="text-gray-400 text-sm">
+          Are you sure you want to close issue <strong className="text-white">#{issueNumber}</strong> on GitHub?
+        </p>
+        {error && (
+          <p className="text-red-400 text-sm mt-2">{error}</p>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} className="text-gray-400" disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={onConfirm}
+            disabled={loading}
+            className="bg-red-600 hover:bg-red-500 text-white"
+          >
+            {loading ? "Closing..." : "Close Issue"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
   const [showIssueModal, setShowIssueModal] = useState(false)
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [closingIssue, setClosingIssue] = useState(false)
+  const [closeError, setCloseError] = useState<string | null>(null)
 
   const save = useCallback((field: keyof QATestPlan, value: unknown) => {
     onUpdate(test.id, { [field]: value } as Partial<QATestPlan>)
@@ -106,41 +156,65 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
 
   const result = (test.result || "untested") as TestResult
 
+  async function handleCloseIssue() {
+    if (!repo || !test.github_issue_number) return
+    setClosingIssue(true)
+    setCloseError(null)
+    try {
+      const res = await fetch("/api/github/close-issue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repo, issue_number: test.github_issue_number }),
+      })
+      if (res.ok) {
+        onUpdate(test.id, { github_issue_status: "closed" })
+        setShowCloseDialog(false)
+      } else {
+        const data = await res.json().catch(() => ({ error: "Failed to close issue" }))
+        setCloseError(data.error || "Failed to close issue")
+      }
+    } catch {
+      setCloseError("Network error: could not close issue")
+    } finally {
+      setClosingIssue(false)
+    }
+  }
+
   return (
     <>
       <tr className={`border-b border-white/5 hover:brightness-110 transition-all ${ROW_BG[result]}`}>
         {/* Section */}
-        <td className="px-3 py-2 text-xs text-gray-400 min-w-[120px] max-w-[160px]">
+        <td className="px-3 py-2 text-xs text-gray-400 overflow-hidden">
           <EditableCell value={test.section} onSave={v => save("section", v)} placeholder="Section" />
         </td>
 
         {/* Test ID */}
-        <td className="px-3 py-2 text-xs font-mono min-w-[60px]">
+        <td className="px-3 py-2 text-xs font-mono overflow-hidden">
           <EditableCell value={test.test_id} onSave={v => save("test_id", v)} placeholder="ID" />
         </td>
 
         {/* Test Name */}
-        <td className="px-3 py-2 min-w-[160px] max-w-[220px]">
+        <td className="px-3 py-2 overflow-hidden">
           <EditableCell value={test.test_name} onSave={v => save("test_name", v)} placeholder="Test name" />
         </td>
 
         {/* Preconditions */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2 overflow-hidden">
           <EditableCell value={test.preconditions} onSave={v => save("preconditions", v)} placeholder="—" multiline />
         </td>
 
         {/* Steps */}
-        <td className="px-3 py-2 min-w-[140px] max-w-[200px]">
+        <td className="px-3 py-2 overflow-hidden">
           <EditableCell value={test.steps} onSave={v => save("steps", v)} placeholder="—" multiline />
         </td>
 
         {/* Expected Result */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2 overflow-hidden">
           <EditableCell value={test.expected_result} onSave={v => save("expected_result", v)} placeholder="—" multiline />
         </td>
 
         {/* Result */}
-        <td className="px-3 py-2 min-w-[120px]">
+        <td className="px-3 py-2 overflow-hidden">
           <Select
             value={result}
             onValueChange={v => save("result", v as TestResult)}
@@ -156,50 +230,88 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
             </SelectContent>
           </Select>
 
-          {result === "fail" && (
-            <div className="mt-1.5">
-              {test.github_issue_url ? (
-                <a
-                  href={test.github_issue_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  #{test.github_issue_number}
-                </a>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-400/10 gap-1"
-                  onClick={() => setShowIssueModal(true)}
-                >
-                  <Bug className="w-3 h-3" />
-                  Create Issue
-                </Button>
+          {/* GitHub issue section */}
+          {test.github_issue_url ? (
+            <div className="mt-1.5 space-y-1">
+              <a
+                href={test.github_issue_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400"
+              >
+                <ExternalLink className="w-3 h-3" />
+                #{test.github_issue_number}
+                {test.github_issue_status === "open" && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[10px] font-medium">
+                    open
+                  </span>
+                )}
+                {test.github_issue_status === "closed" && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-medium">
+                    closed
+                  </span>
+                )}
+              </a>
+              {test.github_issue_status !== "closed" && (
+                <div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-5 px-1.5 text-[10px] text-gray-500 hover:text-red-400 hover:bg-red-400/10 gap-0.5"
+                    onClick={() => setShowCloseDialog(true)}
+                  >
+                    <XCircle className="w-2.5 h-2.5" />
+                    Close issue
+                  </Button>
+                </div>
               )}
             </div>
-          )}
+          ) : result === "fail" ? (
+            <div className="mt-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-400/10 gap-1"
+                onClick={() => setShowIssueModal(true)}
+              >
+                <Bug className="w-3 h-3" />
+                Create Issue
+              </Button>
+            </div>
+          ) : null}
         </td>
 
         {/* Tester Details */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2 overflow-hidden">
           <EditableCell value={test.tester_details} onSave={v => save("tester_details", v)} placeholder="—" multiline />
+          <FileUpload
+            testPlanId={test.id}
+            projectId={test.project_id}
+            field="tester_details"
+            attachments={test.attachments || []}
+            onUpdate={(atts: Attachment[]) => save("attachments", atts)}
+          />
         </td>
 
         {/* Suggestions */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2 overflow-hidden">
           <EditableCell value={test.suggestions} onSave={v => save("suggestions", v)} placeholder="—" multiline />
+          <FileUpload
+            testPlanId={test.id}
+            projectId={test.project_id}
+            field="suggestions"
+            attachments={test.attachments || []}
+            onUpdate={(atts: Attachment[]) => save("attachments", atts)}
+          />
         </td>
 
         {/* Dev Notes */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2 overflow-hidden">
           <EditableCell value={test.developer_notes} onSave={v => save("developer_notes", v)} placeholder="—" multiline />
         </td>
 
         {/* Test Again */}
-        <td className="px-3 py-2 text-center min-w-[80px]">
+        <td className="px-3 py-2 text-center overflow-hidden">
           <button
             onClick={() => save("test_again", !test.test_again)}
             className={`w-8 h-4 rounded-full transition-colors relative ${test.test_again ? "bg-amber-600" : "bg-gray-700"}`}
@@ -213,12 +325,12 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
         </td>
 
         {/* Retest Details */}
-        <td className="px-3 py-2 min-w-[120px] max-w-[180px]">
+        <td className="px-3 py-2 overflow-hidden">
           <EditableCell value={test.retest_details} onSave={v => save("retest_details", v)} placeholder="—" multiline />
         </td>
 
         {/* Actions */}
-        <td className="px-2 py-2 text-center">
+        <td className="px-2 py-2 text-center overflow-hidden">
           <button
             onClick={() => onDelete(test.id)}
             className="text-gray-600 hover:text-red-400 transition-colors p-1 rounded"
@@ -236,12 +348,24 @@ export default function TestRow({ test, repo, onUpdate, onDelete }: Props) {
           open={showIssueModal}
           onClose={() => setShowIssueModal(false)}
           onCreated={(url, number) => {
-            save("github_issue_url", url)
-            save("github_issue_number", number)
+            onUpdate(test.id, {
+              github_issue_url: url,
+              github_issue_number: number,
+              github_issue_status: "open",
+            })
             setShowIssueModal(false)
           }}
         />
       )}
+
+      <CloseIssueDialog
+        open={showCloseDialog}
+        onClose={() => { setShowCloseDialog(false); setCloseError(null) }}
+        onConfirm={handleCloseIssue}
+        loading={closingIssue}
+        issueNumber={test.github_issue_number}
+        error={closeError}
+      />
     </>
   )
 }

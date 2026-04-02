@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
-import SignOutButton from "@/components/SignOutButton"
+import HeaderAuth from "@/components/HeaderAuth"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,9 +30,7 @@ export default function RootLayout({
                 <span className="ml-1.5 text-xs text-amber-600/80 font-medium">by Wherk AI</span>
               </div>
             </a>
-            <div className="ml-auto">
-              <SignOutButton />
-            </div>
+            <HeaderAuth />
           </div>
         </header>
         <main className="max-w-[1600px] mx-auto px-4 py-6">

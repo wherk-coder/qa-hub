@@ -1,10 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request,
-  })
+  let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,47 +16,58 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          response = NextResponse.next({ request })
+          supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, options)
           )
         },
       },
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
+  const isLoginPage = request.nextUrl.pathname === '/login'
+  const isApiRoute = request.nextUrl.pathname === '/api' || request.nextUrl.pathname.startsWith('/api/')
 
-  // Allow /login through without auth
-  if (pathname === '/login') {
-    // If already logged in, redirect to dashboard
-    if (session) {
-      return NextResponse.redirect(new URL('/', request.url))
+  // Protect API routes: require authentication except /api/seed in development
+  if (isApiRoute) {
+    const isSeedRoute = request.nextUrl.pathname === '/api/seed'
+    const isDev = process.env.NODE_ENV === 'development'
+
+    if (isSeedRoute && isDev) {
+      return supabaseResponse
     }
-    return response
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    return supabaseResponse
   }
 
-  // Protect all other routes
-  if (!session) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirectTo', pathname)
-    return NextResponse.redirect(loginUrl)
+  // Redirect unauthenticated users to /login
+  if (!user && !isLoginPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('redirectTo', request.nextUrl.pathname + request.nextUrl.search)
+    return NextResponse.redirect(url)
   }
 
-  return response
+  // Redirect authenticated users away from /login
+  if (user && isLoginPage) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    return NextResponse.redirect(url)
+  }
+
+  return supabaseResponse
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - public files
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
