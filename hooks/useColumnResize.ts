@@ -25,7 +25,12 @@ export function useColumnResize(
       const saved = localStorage.getItem(storageKey)
       if (saved) {
         const parsed = JSON.parse(saved)
-        setWidths(prev => ({ ...prev, ...parsed }))
+        const normalized: Record<string, number> = {}
+        for (const key of Object.keys(parsed)) {
+          const val = Number(parsed[key])
+          normalized[key] = (isFinite(val) && val > 0) ? val : defaultWidths[key] ?? MIN_WIDTH
+        }
+        setWidths(prev => ({ ...prev, ...normalized }))
       }
     } catch {
       // ignore

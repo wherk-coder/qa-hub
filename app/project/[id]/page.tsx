@@ -192,7 +192,11 @@ export default function ProjectPage() {
   const blockedCount = counts.blocked || 0
   const untestedCount = counts.untested || total
 
-  const tableWidth = COLUMNS.reduce((sum, col) => sum + (colWidths[col.key] ?? col.defaultWidth), 0)
+  const tableWidth = COLUMNS.reduce((sum, col) => {
+    const w = Number(colWidths[col.key])
+    const safeWidth = (isFinite(w) && w > 0) ? w : col.defaultWidth
+    return sum + safeWidth
+  }, 0)
 
   if (loading) {
     return (
@@ -383,6 +387,11 @@ export default function ProjectPage() {
               className="text-sm"
               style={{ tableLayout: "fixed", width: tableWidth + "px" }}
             >
+              <colgroup>
+                {COLUMNS.map(col => (
+                  <col key={col.key} style={{ width: colWidths[col.key] ?? col.defaultWidth }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr className="border-b border-white/10 bg-[#0d0d0d] text-left">
                   {COLUMNS.map((col) => (
@@ -390,21 +399,31 @@ export default function ProjectPage() {
                       key={col.key}
                       style={{ width: colWidths[col.key] ?? col.defaultWidth, position: "relative" }}
                       className="text-xs font-medium text-gray-500"
+                      {...(col.sortable ? {
+                        "aria-sort": sortCol === col.key
+                          ? (sortDir === "asc" ? "ascending" : "descending")
+                          : "none"
+                      } : {})}
                     >
-                      <div
-                        className={`px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis select-none flex items-center gap-1 ${
-                          col.sortable ? "cursor-pointer hover:text-gray-300 transition-colors" : ""
-                        }`}
-                        onClick={col.sortable ? () => handleSort(col.key) : undefined}
-                        title={col.sortable ? `Sort by ${col.label}` : undefined}
-                      >
-                        {col.label}
-                        {col.sortable && sortCol === col.key && (
-                          <span className="text-amber-500 text-[10px] leading-none">
-                            {sortDir === "asc" ? "▲" : "▼"}
-                          </span>
-                        )}
-                      </div>
+                      {col.sortable ? (
+                        <button
+                          type="button"
+                          className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis select-none flex items-center gap-1 w-full text-left cursor-pointer hover:text-gray-300 transition-colors bg-transparent border-0 text-inherit font-inherit"
+                          onClick={() => handleSort(col.key)}
+                          title={`Sort by ${col.label}`}
+                        >
+                          {col.label}
+                          {sortCol === col.key && (
+                            <span className="text-amber-500 text-[10px] leading-none">
+                              {sortDir === "asc" ? "▲" : "▼"}
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        <div className="px-3 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis select-none flex items-center gap-1">
+                          {col.label}
+                        </div>
+                      )}
                       {col.key !== "actions" && (
                         <div
                           onMouseDown={(e) => startResize(col.key, e)}
@@ -426,7 +445,6 @@ export default function ProjectPage() {
                     repo={project.github_repo}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}
-                    columnWidths={colWidths}
                   />
                 ))}
               </tbody>
