@@ -175,7 +175,7 @@ export default function ProjectPage() {
     return [...tests].sort((a, b) => {
       const aVal = String(a[sortCol as keyof QATestPlan] ?? "")
       const bVal = String(b[sortCol as keyof QATestPlan] ?? "")
-      const cmp = aVal.localeCompare(bVal)
+      const cmp = aVal.localeCompare(bVal, undefined, { numeric: true })
       return sortDir === "asc" ? cmp : -cmp
     })
   }, [tests, sortCol, sortDir])
