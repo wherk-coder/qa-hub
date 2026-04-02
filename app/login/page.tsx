@@ -1,39 +1,38 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { createSupabaseClient } from "@/lib/supabase-client"
+import { useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get("redirectTo") || "/"
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    setError("")
+    setError(null)
 
-    try {
-      const supabase = createSupabaseClient()
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+    const supabase = createSupabaseBrowserClient()
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-      if (authError) {
-        setError(authError.message)
-      } else {
-        router.push("/")
-        router.refresh()
-      }
-    } catch {
-      setError("An unexpected error occurred. Please try again.")
-    } finally {
+    if (authError) {
+      setError(authError.message)
       setLoading(false)
+      return
     }
+
+    router.push(redirectTo)
+    router.refresh()
   }
 
   return (
@@ -107,5 +106,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   )
 }
