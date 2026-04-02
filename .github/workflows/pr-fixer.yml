@@ -1,0 +1,37 @@
+name: PR Fixer
+
+on:
+  repository_dispatch:
+    types: [coderabbit-review]
+
+jobs:
+  fix-pr:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    steps:
+      - name: Fix PR
+        env:
+          REPO: ${{ github.event.client_payload.repo }}
+          PR_NUMBER: ${{ github.event.client_payload.pr_number }}
+          REVIEW_AUTHOR: ${{ github.event.client_payload.review_author }}
+        run: |
+          echo "CodeRabbit review detected on ${REPO}#${PR_NUMBER}"
+          echo "Review by: ${REVIEW_AUTHOR}"
+
+          # Clone the repo if not already present
+          REPO_DIR="/tmp/pr-fixer/${REPO##*/}"
+          if [ -d "$REPO_DIR/.git" ]; then
+            cd "$REPO_DIR"
+            git fetch --all
+          else
+            mkdir -p /tmp/pr-fixer
+            gh repo clone "$REPO" "$REPO_DIR" -- --depth=50
+            cd "$REPO_DIR"
+          fi
+
+          # Checkout the PR branch
+          gh pr checkout "$PR_NUMBER"
+
+          # Run fixx (the loop orchestrator)
+          eval "$(/usr/local/bin/brew shellenv zsh)"
+          bash ~/.claude/scripts/fixx.sh "$PR_NUMBER"
