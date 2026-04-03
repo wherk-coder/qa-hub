@@ -23,6 +23,7 @@ jobs:
           REPO_DIR="/tmp/pr-fixer/${REPO##*/}"
           if [ -d "$REPO_DIR/.git" ]; then
             cd "$REPO_DIR"
+            git fetch --unshallow 2>/dev/null || true
             git fetch --all --prune
           else
             mkdir -p /tmp/pr-fixer
