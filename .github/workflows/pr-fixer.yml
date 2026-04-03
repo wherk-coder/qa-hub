@@ -15,6 +15,11 @@ jobs:
           PR_NUMBER: ${{ github.event.client_payload.pr_number }}
           REVIEW_AUTHOR: ${{ github.event.client_payload.review_author }}
         run: |
+          # Unset Actions-injected tokens so gh CLI uses local auth
+          # (self-hosted runner's gh auth has cross-repo access)
+          unset GITHUB_TOKEN
+          unset GH_TOKEN
+
           echo "CodeRabbit review detected on ${REPO}#${PR_NUMBER}"
           echo "Review by: ${REVIEW_AUTHOR}"
 
