@@ -19,17 +19,12 @@ jobs:
           echo "CodeRabbit review detected on ${REPO}#${PR_NUMBER}"
           echo "Review by: ${REVIEW_AUTHOR}"
 
-          # Clone the repo if not already present
+          # Always start with a fresh clone to avoid stale state
           REPO_DIR="/tmp/pr-fixer/${REPO##*/}"
-          if [ -d "$REPO_DIR/.git" ]; then
-            cd "$REPO_DIR"
-            git fetch --unshallow 2>/dev/null || true
-            git fetch --all --prune
-          else
-            mkdir -p /tmp/pr-fixer
-            gh repo clone "$REPO" "$REPO_DIR"
-            cd "$REPO_DIR"
-          fi
+          rm -rf "$REPO_DIR"
+          mkdir -p /tmp/pr-fixer
+          gh repo clone "$REPO" "$REPO_DIR"
+          cd "$REPO_DIR"
 
           # Checkout the PR branch
           gh pr checkout "$PR_NUMBER"
