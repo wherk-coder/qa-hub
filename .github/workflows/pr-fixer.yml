@@ -4,6 +4,11 @@ on:
   repository_dispatch:
     types: [coderabbit-review]
 
+# Only one fixer per PR at a time — cancel stale runs
+concurrency:
+  group: pr-fixer-${{ github.event.client_payload.repo }}-${{ github.event.client_payload.pr_number }}
+  cancel-in-progress: true
+
 jobs:
   fix-pr:
     runs-on: self-hosted
