@@ -1,0 +1,20 @@
+name: Auto-fix CodeRabbit Reviews
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  auto-fix:
+    uses: wherkmain/ci-workflows/.github/workflows/auto-fix-pr.yml@main
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      pr_head_ref: ${{ github.event.pull_request.head.ref }}
+      pr_head_sha: ${{ github.event.pull_request.head.sha }}
+      review_user: ${{ github.event.review.user.login }}
+      pr_state: ${{ github.event.pull_request.state }}
+      pr_draft: ${{ github.event.pull_request.draft }}
+      pr_base_ref: ${{ github.event.pull_request.base.ref }}
+      pr_head_repo: ${{ github.event.pull_request.head.repo.full_name }}
+      repository: ${{ github.repository }}
+    secrets: inherit
